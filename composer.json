@@ -1,0 +1,12 @@
+{
+
+
+
+	"autoload": {
+		"psr-4": {
+			"Route\\": "src/Route",
+			"Discovery\\": "src/Discovery"
+		}
+	}
+
+}
