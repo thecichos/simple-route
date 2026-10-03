@@ -6,7 +6,6 @@ use Route\Route;
 
 class Methods
 {
-
 	#[Route("GET", "/")]
 	public static function index()
 	{
@@ -27,6 +26,8 @@ class Methods
 	{
 		?>
 			<h1>About</h1>
+		<br>
+		<a href="./">Go back</a>
 		<?php
 	}
 
@@ -35,6 +36,8 @@ class Methods
 	{
 		?>
 		<h1>About us</h1>
+		<br>
+		<a href="./">Go back</a>
 		<?php
 	}
 
@@ -43,6 +46,8 @@ class Methods
 	{
 		?>
 			<h1>index but post</h1>
+		<br>
+		<a href="./">Go back</a>
 		<?php
 	}
 
