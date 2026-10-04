@@ -1,7 +1,20 @@
 {
+	"name": "thecichos/simple-route",
+	"description": "A simple routing system for php",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Jonas Nielsen",
+			"email": "thecichos@gmail.com"
+		}
+	],
 
+	"version": "1.0.0",
 
-
+	"require": {
+		"thecichos/auto-documentation": "@dev"
+	},
 	"autoload": {
 		"psr-4": {
 			"Route\\": "src/Route",

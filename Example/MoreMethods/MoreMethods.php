@@ -4,6 +4,9 @@ namespace MoreMethods;
 
 use Route\Route;
 
+/**
+ * Handles a GET request to the /coolstuff route.
+ */
 class MoreMethods
 {
 	#[Route("GET", "/coolstuff")]
@@ -12,7 +15,7 @@ class MoreMethods
 		?>
 		<h1>This is the cool stuff</h1>
 
-		<a href="./">Go back</a>
+		<a href="/Example">Go back</a>
 		<?php
 	}
 }

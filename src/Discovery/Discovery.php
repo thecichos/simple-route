@@ -58,11 +58,18 @@ final class Discovery
 			$URI = ($this->callableUriModification)($URI);
 		}
 
+		if (empty($URI)) {
+			$URI = "/";
+		}
+
 		$METHOD = $_SERVER['REQUEST_METHOD'];
 		
 		foreach ($this->routes as $route) {
 
-			if ($URI === $route['path'] && $METHOD === $route['httpMethod']) {
+			if (
+				$URI === $route['path']
+				&& $METHOD === $route['httpMethod']
+			) {
 
 				$class = $route['class'];
 				$method = $route['method'];
