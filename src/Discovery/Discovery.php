@@ -2,6 +2,7 @@
 
 namespace Discovery;
 
+use Middleware\Middleware;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -63,6 +64,8 @@ final class Discovery
 		$class = null;
 		$method = null;
 
+		$middleware = null;
+
 		$URI = $_SERVER['REQUEST_URI'];
 
 		if ($this->callableUriModification !== null) {
@@ -85,12 +88,36 @@ final class Discovery
 				$class = $route['class'];
 				$method = $route['method'];
 
+				$middleware = $route['middleware'];
+
 				$routeFound = true;
 			}
 		}
 
 		if ($routeFound) {
+			
+			if (!empty($middleware)) {
+
+				foreach ($middleware["before"] as $mw) {
+					if ($mw["args"]) {
+						$mw["class"]::{$mw["method"]}(...$mw["args"]);
+					} else {
+						$mw["class"]::{$mw["method"]}();
+					}
+				}
+			}
+
 			$class::{$method}();
+
+			if (!empty($middleware)) {
+				foreach ($middleware["after"] as $mw) {
+					if ($mw["args"]) {
+						$mw["class"]::{$mw["method"]}(...$mw["args"]);
+					} else {
+						$mw["class"]::{$mw["method"]}();
+					}
+				}
+			}
 		} else {
 			throw new RuntimeException('Route not found');
 		}
@@ -215,11 +242,26 @@ final class Discovery
 				/** @var Route $route */
 				$route = $attribute->newInstance();
 
+				$middlewareAttributes = [];
+
+				foreach ($reflectionMethod->getAttributes(Middleware::class) as $middlewareAttribute) {
+
+					$middleware = $middlewareAttribute->newInstance();
+					$tempMiddleware = [];
+					$tempMiddleware["class"] = $middleware->class;
+					$tempMiddleware["method"] = $middleware->method;
+					$tempMiddleware["args"] = $middleware->args;
+					$tempMiddleware["when"] = $middleware->when;
+
+					$middlewareAttributes[$middleware->when][] = $tempMiddleware;
+				}
+
 				$routes[] = [
 					'class' => $reflectionClass->getName(),
 					'method' => $reflectionMethod->getName(),
 					'httpMethod' => strtoupper($route->method),
-					'path' => $route->path
+					'path' => $route->path,
+					'middleware' => $middlewareAttributes
 				];
 			}
 		}

@@ -19,7 +19,8 @@
 	"autoload": {
 		"psr-4": {
 			"Route\\": "src/Route",
-			"Discovery\\": "src/Discovery"
+			"Discovery\\": "src/Discovery",
+			"Middleware\\": "src/Middleware"
 		}
 	}
 
