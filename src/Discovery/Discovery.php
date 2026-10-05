@@ -5,6 +5,7 @@ namespace Discovery;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
+use ReflectionException;
 use ReflectionMethod;
 use RuntimeException;
 use SplFileInfo;
@@ -14,19 +15,21 @@ final class Discovery
 {
 	private array $routes = [];
 
+	/**
+	 * @param array<int, string> $foldersToSearch An array of folder paths to search.
+	 * @param callable $callableUriModification A callable to handle URI modifications.
+	 * @return void
+	 */
 	public function __construct(
-		private readonly string $basePath,
-		private $callableUriModification
+		private readonly array $foldersToSearch,
+		private                $callableUriModification
 	) {}
 
 	/**
-	 * @return array<int, array{
-	 *     class: string,
-	 *     method: string,
-	 *     httpMethod: string,
-	 *     path: string,
-	 *     group: string
-	 * }>
+	 * Discovers and processes routes from files and classes, storing the resulting routes internally.
+	 *
+	 * @return void
+	 * @throws ReflectionException
 	 */
 	public function discover() : void
 	{
@@ -41,6 +44,14 @@ final class Discovery
 		$this->routes = $routes;
 	}
 
+	/**
+	 * Matches the current request URI and HTTP method against the registered routes,
+	 * and invokes the corresponding class method if a match is found.
+	 *
+	 * @return void
+	 *
+	 * @throws RuntimeException If no routes are registered or no matching route is found.
+	 */
 	public function call() : void
 	{
 
@@ -86,41 +97,62 @@ final class Discovery
 	}
 
 	/**
-	 * @return array<int, string>
+	 * Discovers and retrieves a list of PHP files from the specified folders.
+	 *
+	 * The method iterates through the configured directories, validating their
+	 * existence, and searches for PHP files using a recursive directory iterator.
+	 * Only files with the `.php` extension are included in the returned list.
+	 *
+	 * @return array An array of file paths pointing to the discovered PHP files.
+	 *
+	 * @throws RuntimeException If a specified base path does not exist.
 	 */
 	private function discoverFiles() : array
 	{
-		$directory = rtrim($this->basePath, '/\\');
-
-		if (!is_dir($directory)) {
-			throw new RuntimeException('Route base path does not exist: ' . $directory);
-		}
 
 		$files = [];
 
-		$iterator = new RecursiveIteratorIterator(
-			new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
-		);
+		foreach($this->foldersToSearch as $basePath) {
+			$directory = rtrim($basePath, '/\\');
 
-		foreach ($iterator as $fileInfo) {
-			
-			if (!$fileInfo instanceof SplFileInfo) {
-				continue;
+			if (!is_dir($directory)) {
+				throw new RuntimeException('Route base path does not exist: ' . $directory);
 			}
 
-			if ($fileInfo->getExtension() !== 'php') {
-				continue;
+			$iterator = new RecursiveIteratorIterator(
+				new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
+			);
+
+			foreach ($iterator as $fileInfo) {
+
+				if (!$fileInfo instanceof SplFileInfo) {
+					continue;
+				}
+
+				if ($fileInfo->getExtension() !== 'php') {
+					continue;
+				}
+
+				$files[] = $fileInfo->getRealPath() ?: $fileInfo->getPathname();
 			}
 
-			$files[] = $fileInfo->getRealPath() ?: $fileInfo->getPathname();
+
 		}
-
 		return $files;
+
 	}
 
 	/**
-	 * @return array<int, string>
-	 * @throws \ReflectionException
+	 * Discovers and retrieves a list of non-abstract classes defined in a specified PHP file.
+	 *
+	 * This method evaluates the file to detect class declarations and filters out abstract
+	 * classes, interfaces, and traits. It ensures that only classes directly declared
+	 * in the provided file are included.
+	 *
+	 * @param string $filePath The path to the PHP file to be analyzed for class declarations.
+	 *
+	 * @return array An array of fully qualified class names discovered in the file.
+	 * @throws ReflectionException
 	 */
 	private function discoverClassesFromFile(string $filePath) : array
 	{
@@ -151,13 +183,21 @@ final class Discovery
 	}
 
 	/**
-	 * @return array<int, array{
-	 *     class: string,
-	 *     method: string,
-	 *     httpMethod: string,
-	 *     path: string,
-	 *     group: string
-	 * }>
+	 * Reads and retrieves route definitions from attributes in a given class.
+	 *
+	 * This method uses reflection to inspect a specified class, retrieves public
+	 * methods annotated with `Route` attributes, and extracts relevant information
+	 * such as HTTP methods, paths, and related class/method metadata.
+	 * Abstract classes, interfaces, and traits are skipped during processing.
+	 *
+	 * @param string $className The fully qualified name of the class to inspect for route definitions.
+	 *
+	 * @return array An array of associative arrays representing route definitions. Each route definition includes:
+	 *               - 'class': The name of the class defining the route.
+	 *               - 'method': The name of the method annotated with a route.
+	 *               - 'httpMethod': The HTTP method specified in the route (e.g., GET, POST).
+	 *               - 'path': The path specified for the route.
+	 * @throws ReflectionException
 	 */
 	private function readRoutesFromClass(string $className) : array
 	{
