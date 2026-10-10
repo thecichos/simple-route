@@ -43,12 +43,22 @@ class MoreMethods
 		<?php
 	}
 
-	#[Route("GET", "/coolstuff")]
+	#[Route("GET", "/coolstuff/{param}")]
 	#[Middleware(MoreMethods::class, "header", null)]
 	#[Middleware(MoreMethods::class, "pre_do", null)]
 	#[Middleware(MoreMethods::class, "post_do", null, "after")]
 	#[Middleware(MoreMethods::class, "footer", null, "after")]
-	public static function GET_coolstuff()
+	public static function GET_coolstuff(string $param): void
+	{
+		?>
+		<h1>This is the cool stuff</h1>
+
+		<a href="/Example">Go back</a>
+		<?php
+	}
+
+	#[Route("GET", "/stuffWithMultipleParams/{param}/{param2}")]
+	public static function GET_stuffWithMultipleParams(int $param, string $param2): void
 	{
 		?>
 		<h1>This is the cool stuff</h1>

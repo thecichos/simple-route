@@ -2,6 +2,9 @@
 
 namespace Discovery;
 
+use Exceptions\IncorrectParameters;
+use Exceptions\NoRoutesFound;
+use Exceptions\RouteNotFound;
 use Middleware\Middleware;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -57,13 +60,13 @@ final class Discovery
 	{
 
 		if (empty($this->routes)) {
-			throw new RuntimeException('No routes found');
+			throw new NoRoutesFound('No routes found');
 		}
 
 		$routeFound = false;
 		$class = null;
 		$method = null;
-
+		$uriArguments = null;
 		$middleware = null;
 
 		$URI = $_SERVER['REQUEST_URI'];
@@ -75,18 +78,35 @@ final class Discovery
 		if (empty($URI)) {
 			$URI = "/";
 		}
+		$uriParts = explode("/", $URI);
 
 		$METHOD = $_SERVER['REQUEST_METHOD'];
 		
 		foreach ($this->routes as $route) {
 
+			$pathProper = array_slice(explode("/", $route['path']), 0, 2);
+			$pathArguments = array_slice(explode("/", $route['path']), 2);
+			$uriArguments = array_slice($uriParts, 2);
+
+
+			
 			if (
-				$URI === $route['path']
+				$uriParts[1] === $pathProper[1]
 				&& $METHOD === $route['httpMethod']
 			) {
 
 				$class = $route['class'];
 				$method = $route['method'];
+
+				if (count($pathArguments) !== count($uriArguments)) {
+					throw new IncorrectParameters("The expected amount of parameters does not match the amount of provided parameters");
+				}
+				
+				if (count(array_filter($uriArguments, function ($value) {
+						return !empty($value);
+					})) !== count($pathArguments)) {
+					throw new IncorrectParameters("The expected amount of parameters does not match the amount of provided parameters");
+				}
 
 				$middleware = $route['middleware'];
 
@@ -107,7 +127,7 @@ final class Discovery
 				}
 			}
 
-			$class::{$method}();
+			$class::{$method}(...$uriArguments);
 
 			if (!empty($middleware)) {
 				foreach ($middleware["after"] as $mw) {
@@ -119,7 +139,7 @@ final class Discovery
 				}
 			}
 		} else {
-			throw new RuntimeException('Route not found');
+			throw new RouteNotFound('Route not found');
 		}
 	}
 
