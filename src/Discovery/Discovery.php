@@ -95,9 +95,6 @@ final class Discovery
 				&& $METHOD === $route['httpMethod']
 			) {
 
-				$class = $route['class'];
-				$method = $route['method'];
-
 				if (count($pathArguments) !== count($uriArguments)) {
 					throw new IncorrectParameters("The expected amount of parameters does not match the amount of provided parameters");
 				}
@@ -108,9 +105,14 @@ final class Discovery
 					throw new IncorrectParameters("The expected amount of parameters does not match the amount of provided parameters");
 				}
 
+				$class = $route['class'];
+				$method = $route['method'];
+
 				$middleware = $route['middleware'];
 
 				$routeFound = true;
+
+				break;
 			}
 		}
 
