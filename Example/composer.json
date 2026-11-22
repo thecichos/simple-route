@@ -1,0 +1,15 @@
+{
+	"name": "example/example",
+	"description": "description",
+	"minimum-stability": "stable",
+	"license": "proprietary",
+	"require": {
+	},
+
+	"autoload": {
+		"psr-4": {
+			"Controllers\\": "Controllers",
+			"Wares\\": "Wares"
+		}
+	}
+}
