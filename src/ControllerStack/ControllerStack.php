@@ -121,6 +121,8 @@ class ControllerStack
 
 				$parentClass = $reflectionClass->getParentClass();
 
+				if ($parentClass === false) continue;
+
 				if ($parentClass->getName() === "Controller\Controller")
 				{
 
