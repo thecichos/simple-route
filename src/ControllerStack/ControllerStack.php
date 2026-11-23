@@ -3,12 +3,15 @@
 namespace ControllerStack;
 
 use Controller\Controller;
+use Controller\ControllerPrefix;
 use Exception;
 use Middleware\Postware;
 use Middleware\Preware;
 use ReflectionClass;
 use ReflectionMethod;
 use Route\Route;
+use Throwable;
+
 
 class ControllerStack
 {
@@ -18,6 +21,10 @@ class ControllerStack
 	private Controller $rootController;
 	/** @var ControllerStack[] $childControllerStacks  */
 	private array $childControllerStacks = [];
+	
+	/** @var Controller[] $namedControllers  */
+	private array $namedControllers = [];
+
 	/** @var ReflectionMethod[] $methods  */
 	private array $methods = [];
 
@@ -32,8 +39,20 @@ class ControllerStack
 
 		foreach ($this->childControllerStacks as $childControllerStack)
 		{
-
 			$lsControllerNames[] = $childControllerStack->rootController->getActualClassName();
+		}
+
+		foreach ($this->namedControllers as $controller)
+		{
+
+			$actualClassName = $controller->getActualClassName();
+
+			if (array_search($actualClassName, $lsControllerNames) !== false)
+			{
+				throw new Exception("Named controller has the same name as a child controller stack");
+			}
+
+			$lsControllerNames[] = $actualClassName;
 		}
 
 		foreach ($lsControllerNames as $controllerName)
@@ -138,6 +157,18 @@ class ControllerStack
 		}
 	}
 
+	public function addNamedController(string $name, Controller $controller): void
+	{
+
+		$refController = new ReflectionClass($controller);
+
+		$refNamedControllerAttr = $refController->getAttributes("Controller\ControllerPrefix");
+		
+		if (count($refNamedControllerAttr) === 0) throw new Exception("Controller must have NamedController attribute");
+
+		$this->namedControllers[$name] = $controller;
+	}
+
 	public function run(): bool
 	{
 
@@ -182,6 +213,7 @@ class ControllerStack
 					continue;
 				}
 
+				/* @Todo Make it so that the arguments can be typed using {<name>:<type>} Where type can be a regex for slug */
 				if (str_starts_with($pathPart, "{")) {
 					$args[] = $incomingPath[$index];
 				} else if ($pathPart !== $incomingPath[$index]) {
@@ -196,25 +228,7 @@ class ControllerStack
 
 
 
-			if ($lsPreWare = $method->getAttributes("Middleware\Preware")) {
-				foreach ($lsPreWare as $refPreWare) {
-
-					/** @var Preware $preWare */
-					$preWare = $refPreWare->newInstance();
-					$preWare->class::{$preWare->method}(...$args);
-				}
-			}
-
-			$method->invoke(null, ...$args);
-
-			if ($lsPostWare = $method->getAttributes("Middleware\Postware")) {
-				foreach ($lsPostWare as $refPostWare) {
-
-					/** @var Postware $postWare */
-					$postWare = $refPostWare->newInstance();
-					$postWare->class::{$postWare->method}(...$args);
-				}
-			}
+			self::executeMethod($method, $args);
 			return true;
 		}
 
@@ -226,7 +240,105 @@ class ControllerStack
 				continue;
 			}
 		}
+		
+
+
+		foreach($this->namedControllers as $controller)
+		{
+			$refController = new \ReflectionClass($controller);
+
+			/** @var ControllerPrefix $prefix */
+			$ControllerPrefix = $refController->getAttributes("Controller\ControllerPrefix")[0];
+
+			$insPrefix = $ControllerPrefix->newInstance();
+
+			$prefix = $insPrefix->prefix;
+
+			$prefix = str_replace("/", "\/", $prefix);
+
+			if (preg_match("/^{$prefix}/", $URI)) {
+
+
+				$prefixLessUri = preg_replace("/^{$prefix}/", "", $URI);
+				$prefixLessUriAlt = $prefixLessUri."/";
+				foreach($refController->getMethods() as $method)
+				{
+
+					$refRoute = $method->getAttributes("Route\Route");
+
+					if ($refRoute)
+					{
+						
+						foreach($refRoute as $route)
+						{
+							/** @var Route $insRoute */
+							$insRoute = $route->newInstance();
+
+							$match = true;
+							$args = [];
+
+							$incomingPath = explode("/", $prefixLessUriAlt);
+							$path = explode("/", $insRoute->path);
+
+							foreach($path as $index => $value)
+							{
+								if (str_starts_with($value, "{")) {
+									$args[] = $incomingPath[$index];
+								} else if ($value !== $incomingPath[$index]) {
+									$match = false;
+									break;
+								}
+							}
+
+							if ($match) {
+								if ($METHOD === $insRoute->method) {
+
+									/** @TODO This is not pretty, make it prettier */
+									try {
+										self::executeMethod($method, $args);
+										return true;
+									} catch (Throwable $th) {
+										continue;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 
 		throw new \Exception("No route found for $METHOD $URI");
+	}
+
+	private static function executeMethod(
+		ReflectionMethod $METHOD,
+		array $args,
+		?Controller $controller = null
+	): bool
+	{
+
+
+		if ($lsPreWare = $METHOD->getAttributes("Middleware\Preware")) {
+			foreach ($lsPreWare as $refPreWare) {
+
+				/** @var Preware $preWare */
+				$preWare = $refPreWare->newInstance();
+				$preWare->class::{$preWare->method}(...$args);
+			}
+		}
+
+		$METHOD->invoke(null, ...$args);
+
+		if ($lsPostWare = $METHOD->getAttributes("Middleware\Postware")) {
+			foreach ($lsPostWare as $refPostWare) {
+
+				/** @var Postware $postWare */
+				$postWare = $refPostWare->newInstance();
+				$postWare->class::{$postWare->method}(...$args);
+			}
+		}
+		
+		return true;
 	}
 }

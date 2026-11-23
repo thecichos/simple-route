@@ -9,6 +9,7 @@
 	"autoload": {
 		"psr-4": {
 			"Controllers\\": "Controllers",
+			"NamedControllers\\": "NamedControllers",
 			"Wares\\": "Wares"
 		}
 	}

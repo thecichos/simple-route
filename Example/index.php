@@ -3,6 +3,7 @@
 
 use Controllers\RootController;
 use ControllerStack\ControllerStack;
+use NamedControllers\AdminController;
 
 require "../vendor/autoload.php";
 require "vendor/autoload.php";
@@ -26,5 +27,7 @@ session_start();
 $controllerStack = new ControllerStack();
 
 $controllerStack->setRootController(new RootController);
+
+$controllerStack->addNamedController("admin", new AdminController);
 
 $controllerStack->run();
